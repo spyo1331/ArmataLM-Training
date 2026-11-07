@@ -2,6 +2,7 @@ import triton
 import triton.language as tl
 from swiglu_ffn_triton_forward import configs_for_swiglu, sigmoid_fast_exp2
 import torch
+from triton_kernels.helper_functions import make_tensors_contiguous
 
 def configs_for_wgrad():
     """Для wgrad-ядер (контракция по M — длинный цикл): больше BLOCK_SIZE_K."""
@@ -261,6 +262,8 @@ def _bwd_dw_dg(
              acc_g.to(dg_ptr.dtype.element_ty), mask=mask)
 
 
+
+@make_tensors_contiguous
 def SwiGLU_ffn_bw(go, x, w, g, d, u, v, h):
     """
     Backward pass для SwiGLU FFN. Работает только с 3D тензорами [B, M, *].
@@ -279,15 +282,6 @@ def SwiGLU_ffn_bw(go, x, w, g, d, u, v, h):
         dg: [K_in, N_exp]
         dd: [N_exp, K_out]
     """
-
-    go = go.contiguous()
-    x = x.contiguous()
-    w = w.contiguous()
-    g = g.contiguous()
-    d = d.contiguous()
-    u = u.contiguous()
-    v = v.contiguous()
-    h = h.contiguous()
 
     B, M, K_in = x.shape
     N_exp = w.shape[-1]

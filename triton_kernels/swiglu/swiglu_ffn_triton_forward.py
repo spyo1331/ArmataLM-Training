@@ -2,7 +2,7 @@ import torch
 import triton.language as tl
 import triton
 import matplotlib
-
+from triton_kernels.helper_functions import make_tensors_contiguous
 
 DEVICE = triton.runtime.driver.active.get_active_torch_device()
 DTYPE = torch.float32
@@ -181,7 +181,7 @@ def triton_dtype_converter(x: torch.Tensor) -> tl.dtype:
     return _converter_dtype[x.dtype]
 
 
-
+@make_tensors_contiguous
 def SwiGLU_ffn(x, w, g, d, training: bool = False):
     was_2d = (x.ndim == 2)
     if was_2d:

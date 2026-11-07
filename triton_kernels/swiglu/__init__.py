@@ -12,20 +12,13 @@ class SwiGLUFFN(torch.autograd.Function):
         if was_2d:
             x = x.unsqueeze(0)
 
-
-        x3 = x.contiguous()
-        w  = w.contiguous()
-        g  = g.contiguous()
-        d  = d.contiguous()
-
-
         if cache_uv:
-            y, u, v, h = SwiGLU_ffn(x3, w, g, d, training=True)
+            y, u, v, h = SwiGLU_ffn(x, w, g, d, training=True)
 
-            ctx.save_for_backward(x3, w, g, d, u, v, h)
+            ctx.save_for_backward(x, w, g, d, u, v, h)
         else:
-            y = SwiGLU_ffn(x3, w, g, d, training=False)
-            ctx.save_for_backward(x3, w, g, d)
+            y = SwiGLU_ffn(x, w, g, d, training=False)
+            ctx.save_for_backward(x, w, g, d)
 
         ctx.was_2d   = was_2d
         ctx.cache_uv = cache_uv

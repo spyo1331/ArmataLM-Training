@@ -234,7 +234,7 @@ def SwiGLU_ffn(x, w, g, d, training: bool = False):
         OUTPUT_DTYPE=OUTPUT_DTYPE,
     )
 
-    # ---- ГЛАВНОЕ: squeeze только если вход был 2D ----
+
     if training:
         if was_2d:
             return y.squeeze(0), u.squeeze(0), v.squeeze(0), h.squeeze(0)

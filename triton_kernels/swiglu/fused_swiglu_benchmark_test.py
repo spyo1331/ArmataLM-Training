@@ -56,20 +56,20 @@ def extract_weights(model, requires_grad=False):
     return w, g, d
 
 
-# ================= FLOPS =================
+
 def flops_fwd(M, K_in, N_exp, K_out):
-    # x@w + x@g + h@d
+
     return 2 * M * K_in * N_exp + 2 * M * K_in * N_exp + 2 * M * N_exp * K_out
 
 
 def flops_bwd(M, K_in, N_exp, K_out, recompute=False):
-    # dh + dd + dx + dw + dg
-    base = (2 * M * K_out * N_exp      # dh = go @ d.T
-            + 2 * N_exp * M * K_out    # dd = h.T @ go
-            + 4 * M * N_exp * K_in     # dx = du@w.T + dv@g.T
-            + 4 * K_in * M * N_exp)    # dw + dg
+
+    base = (2 * M * K_out * N_exp    
+            + 2 * N_exp * M * K_out    
+            + 4 * M * N_exp * K_in    
+            + 4 * K_in * M * N_exp)   
     if recompute:
-        base += 4 * M * K_in * N_exp   # u = x@w, v = x@g
+        base += 4 * M * K_in * N_exp   
     return base
 
 
@@ -83,7 +83,7 @@ def bytes_fwd(M, K_in, N_exp, K_out, elem_size=2):
     return reads + writes
 
 
-# ================= WRAPPERS =================
+
 def _forward_fn(provider, x, model):
     """Inference: torch — model(x) под no_grad; triton — SwiGLU_ffn(..., training=False)."""
     if provider == 'torch':
@@ -116,7 +116,7 @@ def _bwd_only_fn(provider, x, model, go):
         return lambda: torch.autograd.grad(y, [x, w, g, d], go, retain_graph=True)
 
 
-# ================= TFLOPS: FORWARD =================
+
 @triton.testing.perf_report(triton.testing.Benchmark(
     x_names=['M'], x_vals=[64, 128, 256, 512, 1024, 2048, 4096, 8192],
     x_log=False, line_arg='provider',
@@ -168,7 +168,7 @@ def bench_fwd_tflops_by_N(M, K, N, provider):
     return flops_fwd(M, K, N, K) / (ms * 1e-3) / 1e12
 
 
-# ================= TFLOPS: FWD+BWD =================
+
 @triton.testing.perf_report(triton.testing.Benchmark(
     x_names=['M'], x_vals=[64, 128, 256, 512, 1024, 2048, 4096, 8192],
     x_log=False, line_arg='provider',
@@ -183,7 +183,7 @@ def bench_fwd_bwd_tflops_by_M(M, K, N, provider):
     go = torch.randn(M, K, device=DEVICE, dtype=DTYPE)
     step = _fwd_bwd_fn(provider, x, model, go)
     ms = triton.testing.do_bench(step, warmup=25, rep=100)
-    # Triton: cache_uv=True → recompute=False
+
     recompute = False
     return flops_fwd_bwd(M, K, N, K, recompute) / (ms * 1e-3) / 1e12
 
@@ -222,7 +222,7 @@ def bench_fwd_bwd_tflops_by_N(M, K, N, provider):
     return flops_fwd_bwd(M, K, N, K, recompute=False) / (ms * 1e-3) / 1e12
 
 
-# ================= TFLOPS: BWD ONLY =================
+
 @triton.testing.perf_report(triton.testing.Benchmark(
     x_names=['M'], x_vals=[256, 512, 1024, 2048, 4096, 8192],
     x_log=False, line_arg='provider',
@@ -240,7 +240,7 @@ def bench_bwd_tflops_by_M(M, K, N, provider):
     return flops_bwd(M, K, N, K, recompute=False) / (ms * 1e-3) / 1e12
 
 
-# ================= BANDWIDTH =================
+
 @triton.testing.perf_report(triton.testing.Benchmark(
     x_names=['N'], x_vals=[256, 512, 1024, 2048, 4096, 8192],
     x_log=False, line_arg='provider',
@@ -258,7 +258,7 @@ def bench_fwd_bandwidth_by_N(M, K, N, provider):
     return bytes_fwd(M, K, N, K) / (ms * 1e-3) / 1e9
 
 
-# ================= MEMORY =================
+
 def measure_memory(fn, warmup=10, iters=50):
     for _ in range(warmup):
         fn()
@@ -284,7 +284,7 @@ def bench_memory(M=8192, K=1920, N=5120):
     print(f"\nMemory (M={M}, K={K}, N={N}, dtype={DTYPE})")
     print("-" * 75)
 
-    # ---------- Forward: inference (no cache) ----------
+
     model = make_module(K, N, requires_grad=False)
     x = make_input(M, K, requires_grad=False)
     w, g, d = extract_weights(model)
@@ -298,9 +298,9 @@ def bench_memory(M=8192, K=1920, N=5120):
     print(f"  Triton  : peak={m_tt['peak_MB']:8.1f} MB  delta={m_tt['delta_MB']:8.1f} MB")
     dlt = m_tf['delta_MB'] - m_tt['delta_MB']
     pct = 100 * dlt / m_tf['delta_MB'] if m_tf['delta_MB'] else 0
-    print(f"  → экономия {dlt:+.1f} MB ({pct:+.1f}%)")
+    print(f" экономия {dlt:+.1f} MB ({pct:+.1f}%)")
 
-    # ---------- Forward: training (with cache) ----------
+
     model_t = make_module(K, N, requires_grad=True)
     w_t, g_t, d_t = extract_weights(model_t, requires_grad=True)
 
@@ -312,12 +312,12 @@ def bench_memory(M=8192, K=1920, N=5120):
     print(f"  Triton  : peak={m_tt['peak_MB']:8.1f} MB  delta={m_tt['delta_MB']:8.1f} MB")
     dlt = m_tf['delta_MB'] - m_tt['delta_MB']
     pct = 100 * dlt / m_tf['delta_MB'] if m_tf['delta_MB'] else 0
-    print(f"  → экономия {dlt:+.1f} MB ({pct:+.1f}%)")
+    print(f" экономия {dlt:+.1f} MB ({pct:+.1f}%)")
 
     del model, model_t, w_t, g_t, d_t
     torch.cuda.empty_cache()
 
-    # ---------- Forward + Backward ----------
+
     model = make_module(K, N, requires_grad=True)
     x = make_input(M, K, requires_grad=True)
     go = torch.randn(M, K, device=DEVICE, dtype=DTYPE)
@@ -339,10 +339,10 @@ def bench_memory(M=8192, K=1920, N=5120):
     print(f"  Triton  : peak={m_tt['peak_MB']:8.1f} MB  delta={m_tt['delta_MB']:8.1f} MB")
     dlt = m_tf['delta_MB'] - m_tt['delta_MB']
     pct = 100 * dlt / m_tf['delta_MB'] if m_tf['delta_MB'] else 0
-    print(f"  → экономия {dlt:+.1f} MB ({pct:+.1f}%)")
+    print(f" экономия {dlt:+.1f} MB ({pct:+.1f}%)")
 
 
-# ================= CORRECTNESS =================
+
 def _rel_err(ref, got):
     return (ref - got).norm().item() / (ref.norm().item() + 1e-12)
 
@@ -375,14 +375,14 @@ def check_bwd_correctness(M=1024, K=512, N=2048, dtype=DTYPE, tol=None):
     x = make_input(M, K, dtype=dtype, requires_grad=True)
     go = torch.randn(M, K, device=DEVICE, dtype=dtype)
 
-    # PyTorch reference
+
     y_ref = model(x)
     grads_ref = torch.autograd.grad(y_ref, [x] + list(model.parameters()), go)
 
-    # Triton
+
     w, g, d = extract_weights(model, requires_grad=True)
     y_tri = SwiGLUFFN.apply(x, w, g, d)
-    grads_tri = torch.autograd.grad(y_tri, [x, w, g, d], go)   # ← без диагностики
+    grads_tri = torch.autograd.grad(y_tri, [x, w, g, d], go)
 
     all_ok = True
     targets = [('dx', grads_ref[0], grads_tri[0], False),
@@ -400,39 +400,32 @@ def check_bwd_correctness(M=1024, K=512, N=2048, dtype=DTYPE, tol=None):
     return all_ok
 
 
-# ================= MAIN =================
+
 if __name__ == "__main__":
-    print("=" * 75)
     print("CORRECTNESS")
-    print("=" * 75)
     check_fwd_correctness()
     check_bwd_correctness()
 
-    print("\n" + "=" * 75)
+
     print("MEMORY")
-    print("=" * 75)
     bench_memory(M=8192, K=1920, N=5120)
 
-    print("\n" + "=" * 75)
+
     print("FORWARD TFLOPS")
-    print("=" * 75)
     bench_fwd_tflops_by_M.run(show_plots=True, print_data=True)
     bench_fwd_tflops_by_K.run(show_plots=True, print_data=True)
     bench_fwd_tflops_by_N.run(show_plots=True, print_data=True)
 
-    print("\n" + "=" * 75)
+
     print("FWD+BWD TFLOPS  (cache_uv=True)")
-    print("=" * 75)
     bench_fwd_bwd_tflops_by_M.run(show_plots=True, print_data=True)
     bench_fwd_bwd_tflops_by_K.run(show_plots=True, print_data=True)
     bench_fwd_bwd_tflops_by_N.run(show_plots=True, print_data=True)
 
-    print("\n" + "=" * 75)
+
     print("BWD-ONLY TFLOPS  (cache_uv=True)")
-    print("=" * 75)
     bench_bwd_tflops_by_M.run(show_plots=True, print_data=True)
 
-    print("\n" + "=" * 75)
+
     print("FORWARD BANDWIDTH")
-    print("=" * 75)
     bench_fwd_bandwidth_by_N.run(show_plots=True, print_data=True)

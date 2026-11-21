@@ -38,9 +38,9 @@ def attn_bwd_preprocess(
     O_offsets = row_offsets[:, None] * stride_O_N + cols_offsets[None, :] * stride_O_Dh
     O = tl.load(O_ptr + O_offsets, mask=mask[:, None], other=0.0)
 
-    dldO_ptr += index_BH * stride_O_H
+    dldo_ptr += index_BH * stride_O_H
     dldO_offsets = row_offsets[:, None] * stride_dldO_N + cols_offsets[None, :] * stride_dldO_Dh
-    dldO = tl.load(dldO_ptr + dldO_offsets, mask=mask[:, None], other=0.0)
+    dldO = tl.load(dldo_ptr + dldO_offsets, mask=mask[:, None], other=0.0)
 
     Delta = tl.sum(dldO * O, axis=1)
     Delta_ptr += index_BH * stride_delta_H
@@ -71,7 +71,7 @@ def _attn_backward_KV(
 
 
 
-        dldO = tl.load(_ptr + offsets, mask=mask_N[:, None], other=0.0)
+        dldO = tl.load(dldO_ptr + dldO_offsets, mask=mask_N[:, None], other=0.0)
         Delta = tl.load(_ptr + offsets, mask=mask_N, other=0.0)
 
         S_T = tl.dot(K, Q_T)

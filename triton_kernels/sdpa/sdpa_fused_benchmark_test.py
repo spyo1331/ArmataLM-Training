@@ -1,7 +1,8 @@
 import torch
 import triton
 import math
-
+from triton_kernels import trit_attn
+DEVICE = 'cuda'
 
 
 
@@ -32,5 +33,5 @@ def test_FA(B,H,N,Dh, device=DEVICE, atol=5e-3):
 
 
 
-
-print(test_FA(1,1,128,32))
+if __name__ == '__main__':  
+    print(test_FA(1,1,128,32))

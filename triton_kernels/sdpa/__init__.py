@@ -49,7 +49,7 @@ class TritonFlashAttention(torch.autograd.Function):
 
         Delta = torch.empty_like(LSE)
         pre_grid = lambda meta: (triton.cdiv(N, meta['PRE_BLOCK_SIZE_ROW']), B*H)
-        attn_backward_preprocess[pre_grid](
+        attn_bwd_preprocess[pre_grid](
             O, dldO, Delta,
             O.stride(0), O.stride(1),O.stride(2),O.stride(3),
             dldO.stride(0), dldO.stride(1),dldO.stride(2),dldO.stride(3),

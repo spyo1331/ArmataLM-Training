@@ -8,11 +8,11 @@ import gc
 
 DEVICE = triton.runtime.driver.active.get_active_torch_device()
 DEVICE = 'cuda'
-DTYPE  = torch.float32
+
 
 @triton.jit
 def _attn_fwd_inner(
-        Q,O,L,M,
+        Q, O, L, M,
         K_ptr, V_ptr,
         K_T_offsets, V_offsets,
         block_index_qo, scale,
@@ -27,17 +27,20 @@ def _attn_fwd_inner(
         hi = (block_index_qo + 1) * BLOCK_SIZE_QO
         lo = tl.multiple_of(lo, BLOCK_SIZE_QO)
     else:
-        lo,hi = 0, block_index_qo * BLOCK_SIZE_QO
+        lo, hi = 0, block_index_qo * BLOCK_SIZE_QO
 
     K_T_offsets += lo * stride_K_N
     V_offsets += lo * stride_V_N
     offsets_KV_N += lo
 
-    for start_KV in range(lo,hi, BLOCK_SIZE_KV):
+    for start_KV in range(lo, hi, BLOCK_SIZE_KV):
         start_KV = tl.multiple_of(start_KV, BLOCK_SIZE_KV)
         mask_kv_n = offsets_KV_N < N
         K_T = tl.load(K_ptr + K_T_offsets, mask=mask_kv_n[None, :], other=0.)
-        S = tl.dot(Q, K_T) * scale
+
+
+        S = tl.dot(Q, K_T.to(Q.dtype)) * scale
+
         if DIAGONAL:
             causal_mask = offsets_QO_N[:, None] >= offsets_KV_N[None, :]
             S = tl.where(causal_mask, S, -1.0e6)
@@ -49,16 +52,18 @@ def _attn_fwd_inner(
         alpha = tl.exp2(M - M_new)
         L = L * alpha + L_new
 
-        V = tl.load(V_ptr + V_offsets, mask=mask_kv_n[:,None], other=0.0)
+        V = tl.load(V_ptr + V_offsets, mask=mask_kv_n[:, None], other=0.0)
         O *= alpha[:, None]
-        O = tl.dot(P,V, acc=O)
+
+
+        O = tl.dot(P.to(V.dtype), V, acc=O)
 
         M = M_new
         K_T_offsets += BLOCK_SIZE_KV * stride_K_N
         V_offsets += BLOCK_SIZE_KV * stride_V_N
         offsets_KV_N += BLOCK_SIZE_KV
 
-    return O,L,M
+    return O, L, M
 
 
 

@@ -1,12 +1,13 @@
 import torch
 import triton
 from sdpa_fwd_fused import attn_fwd
-from sdpa_bwd_fused import attn_bwd_preprocess, attn_bwd
+from sdpa_bwd_fused import attn_backward_preprocess, attn_backward
 
 class TritonFlashAttention(torch.autograd.Function):
     @staticmethod
     def forward(ctx, q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, scale):
         B,H,N,Dh = q.shape
+        assert q.shape[-1] in [16,32,64,128], 'Head dim must be a power of 2'
         assert q.shape == k.shape == v.shape
         assert q.device == k.device == v.device
 
@@ -29,6 +30,7 @@ class TritonFlashAttention(torch.autograd.Function):
 
         ctx.save_for_backward(q,k,v,O,LSE)
         ctx.grid = grid
+        ctx.scale = scale
         ctx.B, ctx.H, ctx.N, ctx.Dh = B,H,N,Dh
 
         return O
@@ -49,7 +51,7 @@ class TritonFlashAttention(torch.autograd.Function):
 
         Delta = torch.empty_like(LSE)
         pre_grid = lambda meta: (triton.cdiv(N, meta['PRE_BLOCK_SIZE_ROW']), B*H)
-        attn_bwd_preprocess[pre_grid](
+        attn_backward_preprocess[pre_grid](
             O, dldO, Delta,
             O.stride(0), O.stride(1),O.stride(2),O.stride(3),
             dldO.stride(0), dldO.stride(1),dldO.stride(2),dldO.stride(3),
@@ -58,11 +60,11 @@ class TritonFlashAttention(torch.autograd.Function):
         )
 
         grid = lambda meta: (triton.cdiv(N, meta['BLOCK_SIZE_MACRO']), B * H)
-        attn_bwd[grid](
+        attn_backward[grid](
             q,k,v,
             dldO, dldq, dldk, dldv, LSE, Delta,
             scale,
-            q.stride(0),q.stride(1),q.stride(2),q.stride(3),
+            q.stride(0),q.stride(1),q.stride(2),q.stride(3), H,N,Dh
         )
 
         return dldq, dldk, dldv, None

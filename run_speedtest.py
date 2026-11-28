@@ -108,6 +108,4 @@ def measure_memory_usage() -> None:
 
 test_cases = [256,1024, 2048, 3800, 16384, 32768]
 
-if __name__ == "__main__":
-    speed_ds_like = run_speedtest(exp_model,test_cases, {'use_cache': True, 'architeture': "DS2023_like", "device": 'cuda', "max_n_ctx": max_context}, run_name='cached_run')
-    print(measure_memory_usage())
+

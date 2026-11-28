@@ -1,6 +1,7 @@
 from llm_architectures.gpt2_base import GPT2Model
 from llm_architectures.DS_v2_like import DSLikeModel
 from llm_architectures.Qwen3_5_like import Qwen3LikeModel
+from llm_architectures.experemental_architecture.experimental_architecture import ArmataLMModel
 import torch
 max_context = 33000
 
@@ -46,4 +47,5 @@ qwen3_5_likemodel_cfg  = {
 qwen3_5_likemodel = Qwen3LikeModel(qwen3_5_likemodel_cfg)
 
 
-armataLM_cfg = {'emb_dim': 768, 'intermed_dim': 768*2.67, 'FFN_cache_uv': False, 'vocab_size': 50257, 'n_heads': 32, 'kv_heads': 8, 'n_layers': 24, 'ctx_len': max_context ,'qkv_bias': False, 'device': 'cuda', 'dtype': torch.float16}
+armataLM_cfg = {'emb_dim': 768, 'intermed_dim': 768*2.67, 'FFN_cache_uv': False, 'vocab_size': 50257, 'n_heads': 12, 'kv_heads': 4, 'n_layers': 12, 'ctx_len': max_context ,'qkv_bias': False, 'device': 'cuda'}
+armataLM = ArmataLMModel(cfg=armataLM_cfg)

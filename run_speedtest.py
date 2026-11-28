@@ -1,74 +1,59 @@
+import gigatoken
 import wandb
 import torch
-from llm_architectures import gpt_model, Ds_like_model, max_context, qwen3_5_likemodel,
+from llm_architectures import gpt_model, Ds_like_model, max_context, qwen3_5_likemodel, armataLM
 import gigatoken as gt
 import loguru as lg
 import time
 from typing import Optional
 from pydantic import BaseModel
-tokenizer = gt.Tokenizer('gpt2').as_hf()
 import gc
+import argparse
 
-
-
-class TestingConfig(BaseModel):
-    architecture: str
-    use_cache: bool
-
-
-
-
-
-def generate_text_with_cache(model, idx, max_new_tokens,
-                                context_size=None, use_cache=True, device='cuda'):
+tokenizer = gt.Tokenizer('gpt2').as_hf()
+def generate_tokens_greedy_untrained(input_text: torch.Tensor, max_new_tokens: int, device: str = 'cuda',
+                                     dtype=torch.float16, use_cache: bool = True, model: torch.nn.Module = armataLM, tokenizer: gigatoken.Tokenizer = tokenizer) -> None:
 
     model.eval()
-    ctx_len = context_size or model.pos_emb.num_embeddings
+    model.reset_cache()
+    model = model.to(device).to(dtype)
 
-    idx = torch.tensor(idx).unsqueeze(0).to(device)
 
+    idx = torch.tensor(tokenizer.encode(input_text), device=device).unsqueeze(0)
+
+
+    current_input = idx
 
     with torch.no_grad():
-        if use_cache:
-            # Init cache with full prompt
-            model.reset_cache()
-            logits = model(idx[:, -ctx_len:], use_cache=True)
+        for _ in range(max_new_tokens):
 
-            for _ in range(max_new_tokens):
-
-                next_idx = logits[:, -1].argmax(dim=-1, keepdim=True)
-
-                idx = torch.cat([idx, next_idx], dim=1)
-
-                logits = model(next_idx, use_cache=True)
-        else:
-            for _ in range(max_new_tokens):
-                logits = model(idx[:, -ctx_len:], use_cache=False)
-                next_idx = logits[:, -1].argmax(dim=-1, keepdim=True)
-                idx = torch.cat([idx, next_idx], dim=1)
-
-    return idx
+            out = model.forward(current_input, use_cache=use_cache)
 
 
-
-def run_speedtest(model,n_tokens_testcases: list[int], config_dict: TestingConfig, run_name: Optional[str]) -> None:
-    lg.logger.info('Starting speed time test.')
-    lg.logger.info(f"Model parameters: {sum(x.numel() for x in model.parameters())}")
-    model.to('cuda').to(torch.bfloat16)
-    for i in n_tokens_testcases:
-        model.reset_cache()
-        start = time.time()
-        generate_text_with_cache(model=model, idx=tokenizer.encode('Привет я максим и я'), context_size=config_dict['max_n_ctx'], max_new_tokens=i, use_cache=config_dict['use_cache'], device=config_dict['device'])
-        end = time.time() - start
-
-        lg.logger.info(f"Tokens: {i} - Time: {end} - Tokens/s: {i/float(end)}")
+            last_token_out = out[:, -1, :]
+            greedy_next_token = torch.argmax(last_token_out, dim=-1, keepdim=True)
 
 
+            idx = torch.cat((idx, greedy_next_token), dim=-1)
+
+
+            current_input = greedy_next_token
+
+    return None
+
+
+def run_speedtest(n_tokens_to_generate: int, model: torch.nn.Module, input_text: str, n_iter_warmups: int = 2, n_tokens_per_warmup_iter: int = 20):
+    lg.logger.info(f'Starting speedtest. Generating {n_tokens_to_generate} new tokens.')
+
+
+    for _ in range(n_iter_warmups):
+        _ = generate_tokens_greedy_untrained(input_text=input_text, max_new_tokens=n_tokens_per_warmup_iter, model=model)
+
+    start = time.time()
+    _ = generate_tokens_greedy_untrained(input_text=input_text, max_new_tokens=n_tokens_to_generate, model=model)
+    end = time.time() - start
+    lg.logger.info(f"Tokens: {n_tokens_to_generate} - Time: {end} - Tokens/s: {n_tokens_to_generate / float(end)}")
     lg.logger.success("Tests ended.")
-
-
-
-
 
 def measure_memory_usage() -> None:
     """
@@ -106,6 +91,29 @@ def measure_memory_usage() -> None:
         'peak_delta': peak_allocated - allocated_before,
     })
 
-test_cases = [256,1024, 2048, 3800, 16384, 32768]
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Program for speed testing (Tokens/s) any implementation.')
+    parser.add_argument('-n', help='Speedtest will generate n new tokens.', default=256, type=int)
+    parser.add_argument('-warmup_iters', help='argument for test to warmup and get more accurate results', default=2, type=int)
+    parser.add_argument('-n_tokens_per_warmup_iter', help='generated tokens per warmup iteration', default=20, type=int)
+    parser.add_argument('-input_text', help='prefill text', default='Hi, my name is...', type=str)
+    parser.add_argument('-model', help='choose model for a speed test\n-ArmataLM\n-GPT2-small\n-Deepseek-likeV2-Dense\n-qwen3_5-like-Dense\n Are available right now', default='ArmataLM', type=str)
+
+    args = parser.parse_args()
+    if args.model == 'ArmataLM':
+        model = armataLM
+    elif args.model == 'Deepseek-likeV2-Dense':
+        model = Ds_like_model
+    elif args.model == 'qwen3_5-like-Dense':
+        model = qwen3_5_likemodel
+    elif args.model == 'GPT2-small':
+        model = gpt_model
+    else:
+        model = armataLM
+
+    lg.logger.info(f'Model chosen: {model.__class__.__name__}')
+    lg.logger.info(f'Parameters: {sum((x.numel() for x in model.parameters()))}')
+    run_speedtest(n_tokens_to_generate=args.n, model=model, input_text=args.input_text, n_iter_warmups=args.warmup_iters, n_tokens_per_warmup_iter=args.n_tokens_per_warmup_iter)
+    measure_memory_usage()
 
 

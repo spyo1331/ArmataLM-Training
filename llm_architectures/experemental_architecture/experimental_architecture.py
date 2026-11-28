@@ -148,8 +148,7 @@ class ArmataV0TransformerBlockGQA(nn.Module):
         super().__init__()
         self.ffn = FFN(cfg=cfg)
         self.attn = GatedGQA(cfg['emb_dim'], cfg['n_heads'], cfg['kv_heads'], cfg['ctx_len'], cfg['qkv_bias'])
-        self.scaling_w_for_rmsnorm1 = nn.Parameter(torch.rand(size=(cfg['emb_dim'],), device=cfg['device'], dtype=cfg['dtype']), requires_grad=True)
-        self.scaling_w_for_rmsnorm2 = nn.Parameter(torch.rand(size=(cfg['emb_dim'],), device=cfg['device'], dtype=cfg['dtype']), requires_grad=True)
+        self.scaling_w_for_rmsnorm1 = nn.Parameter(torch.rand(size=(cfg['emb_dim'],), device=cfg['device']), requires_grad=True)
 
 
 
@@ -158,13 +157,10 @@ class ArmataV0TransformerBlockGQA(nn.Module):
 
         shortcut = x
         x = triton_rmsnorm(x, self.scaling_w_for_rmsnorm1)
-        x = self.attn.forward(x, use_cache=use_cache)
-        x = x + shortcut
+        x_attn = self.attn.forward(x, use_cache=use_cache)
 
-        shortcut = x
-        x = triton_rmsnorm(x, self.scaling_w_for_rmsnorm2)
         x = self.ffn(x)
-        x = x+shortcut
+        x = x+shortcut+x_attn
 
         return x
 
@@ -183,9 +179,8 @@ class ArmataV0TransformerBlockGDN2(nn.Module):
             conv_bias=False
         )
         self.scaling_w_for_rmsnorm1 = nn.Parameter(
-            torch.rand(size=(cfg['emb_dim'],), device=cfg['device'], dtype=cfg['dtype']), requires_grad=True)
-        self.scaling_w_for_rmsnorm2 = nn.Parameter(
-            torch.rand(size=(cfg['emb_dim'],), device=cfg['device'], dtype=cfg['dtype']), requires_grad=True)
+            torch.rand(size=(cfg['emb_dim'],), device=cfg['device']), requires_grad=True)
+
 
     def forward(self, x):
         shortcut = x
@@ -193,16 +188,13 @@ class ArmataV0TransformerBlockGDN2(nn.Module):
 
         attn_out = self.attn(x)
         if isinstance(attn_out, tuple):
-            x = attn_out[0]
+            x_attn = attn_out[0]
         else:
-            x = attn_out
+            x_attn = attn_out
 
-        x = x + shortcut
-
-        shortcut = x
-        x = triton_rmsnorm(x, self.scaling_w_for_rmsnorm2)
         x = self.ffn(x)
-        x = x + shortcut
+
+        x = x + shortcut + x_attn
 
         return x
 
@@ -225,7 +217,7 @@ class ArmataLMModel(nn.Module):
 
 
         self.scaling_w_for_rmsnorm3 = nn.Parameter(
-            torch.rand(size=(cfg['emb_dim'],), device=cfg['device'], dtype=cfg['dtype']), requires_grad=True)
+            torch.rand(size=(cfg['emb_dim'],), device=cfg['device']), requires_grad=True)
 
 
         self.lm_head = nn.Linear(cfg['emb_dim'], cfg['vocab_size'], bias=False)

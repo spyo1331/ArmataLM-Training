@@ -1,13 +1,13 @@
 import torch
 import triton
-from sdpa_fwd_fused import attn_fwd
-from sdpa_bwd_fused import attn_backward_preprocess, attn_backward
+from triton_kernels.sdpa.sdpa_fwd_fused import attn_fwd
+from triton_kernels.sdpa.sdpa_bwd_fused import attn_backward_preprocess, attn_backward
 
 class TritonFlashAttention(torch.autograd.Function):
     @staticmethod
     def forward(ctx, q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, scale):
         B,H,N,Dh = q.shape
-        assert q.shape[-1] in [16,32,64,128], 'Head dim must be a power of 2'
+        assert q.shape[-1] in [2,4,8,16,32,64,128], 'Head dim must be a power of 2'
         assert q.shape == k.shape == v.shape
         assert q.device == k.device == v.device
 

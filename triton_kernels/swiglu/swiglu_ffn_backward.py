@@ -1,6 +1,6 @@
 import triton
 import triton.language as tl
-from swiglu_ffn_triton_forward import configs_for_swiglu, sigmoid_fast_exp2
+from triton_kernels.swiglu.swiglu_ffn_triton_forward import configs_for_swiglu, sigmoid_fast_exp2
 import torch
 from triton_kernels.helper_functions import make_tensors_contiguous
 

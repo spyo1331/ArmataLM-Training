@@ -106,8 +106,8 @@ class TorchTrainer:
 
 lr = 4e-5
 optimizer = AdamW(params=exp_model.parameters(), lr=4e-5, weight_decay=0.03, fused=True)
-en = load_dataset('allenai/c4', 'en', streaming=True, split='train').select_columns('text')
-ru = load_dataset('allenai/c4', 'ru', streaming=True, split='train').select_columns('text')
+en = load_dataset("HuggingFaceFW/fineweb", name="CC-MAIN-2024-10", split="train", streaming=True)
+ru = load_dataset('epfml/FineWeb2-embedded', 'ru', streaming=True, split='train').select_columns('text')
 
 
 trainer = TorchTrainer(model=exp_model,

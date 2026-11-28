@@ -8,7 +8,7 @@ import matplotlib
 from torch import nn
 import torch.nn.functional as F
 
-DTYPE = torch.bfloat16
+DTYPE = torch.float16
 DEVICE = 'cuda'
 
 

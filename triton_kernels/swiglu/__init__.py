@@ -1,5 +1,5 @@
-from swiglu_ffn_triton_forward import configs_for_swiglu, triton_dtype_converter, _up_proj_swiglu_ffn_forward, _swiglu_ffn_down_proj_forward, SwiGLU_ffn
-from swiglu_ffn_backward import SwiGLU_ffn_bw
+from triton_kernels.swiglu.swiglu_ffn_triton_forward import configs_for_swiglu, triton_dtype_converter, _up_proj_swiglu_ffn_forward, _swiglu_ffn_down_proj_forward, SwiGLU_ffn
+from triton_kernels.swiglu.swiglu_ffn_backward import SwiGLU_ffn_bw
 import torch
 
 

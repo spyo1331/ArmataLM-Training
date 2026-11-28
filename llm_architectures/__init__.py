@@ -1,8 +1,7 @@
 from llm_architectures.gpt2_base import GPT2Model
 from llm_architectures.DS_v2_like import DSLikeModel
 from llm_architectures.Qwen3_5_like import Qwen3LikeModel
-from llm_architectures.experemental_architecture.experimental_architecture import EXPModel
-
+import torch
 max_context = 33000
 
 standart_gpt2_cfg = {
@@ -47,14 +46,4 @@ qwen3_5_likemodel_cfg  = {
 qwen3_5_likemodel = Qwen3LikeModel(qwen3_5_likemodel_cfg)
 
 
-cfg = {
-    "emb_dim": 1536,
-    "n_heads": 24,
-    "n_layers": 27,
-    "vocab_size": 50257,
-    "n_kv_heads": 4,
-    "compress_coef": 2,
-    "intermed_dim": 4608,
-    "qkv_bias": False
-}
-exp_model = EXPModel(cfg=cfg)
+armataLM_cfg = {'emb_dim': 768, 'intermed_dim': 768*2.67, 'FFN_cache_uv': False, 'vocab_size': 50257, 'n_heads': 32, 'kv_heads': 8, 'n_layers': 24, 'ctx_len': max_context ,'qkv_bias': False, 'device': 'cuda', 'dtype': torch.float16}

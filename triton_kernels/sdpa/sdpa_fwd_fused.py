@@ -6,9 +6,6 @@ import triton
 import triton.language as tl
 import gc
 
-DEVICE = triton.runtime.driver.active.get_active_torch_device()
-DEVICE = 'cuda'
-
 
 @triton.jit
 def _attn_fwd_inner(
